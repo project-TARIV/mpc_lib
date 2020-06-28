@@ -5,32 +5,28 @@
 #include <Eigen-3.3/Eigen/Core>
 #include <vector>
 
-struct MPCparams
-{
-    int N;
-    double dt;
+struct MPCparams {
+    int N{};
+    double dt{};
 
-    double ref_cte;
-    double ref_etheta;
-    double ref_v;
+    double ref_cte{};
+    double ref_etheta{};
+    double ref_v{};
 
-    double MAX_OMEGA;
-    double MAX_THROTTLE;
-    double BOUND_VALUE;
+    double MAX_OMEGA{};
+    double MAX_THROTTLE{};
+    double BOUND_VALUE{1.0e3};
 
-    double W_CTE;
-    double W_ETHETA;
-    double W_VEL;
-    double W_OMEGA;
-    double W_ACC;
-    double W_OMEGA_D;
-    double W_ACC_D;
-
-    MPCparams(void);
+    double W_CTE{};
+    double W_ETHETA{};
+    double W_VEL{};
+    double W_OMEGA{};
+    double W_ACC{};
+    double W_OMEGA_D{};
+    double W_ACC_D{};
 };
 
-struct VarIndices
-{
+struct VarIndices {
     size_t x_start, y_start, theta_start;
     size_t v_start, omega_start, acc_start;
     size_t cte_start, etheta_start;
@@ -38,16 +34,20 @@ struct VarIndices
     void setIndices(int N);
 };
 
-class MPC
-{
+class MPC {
 public:
     MPC();
 
     virtual ~MPC();
 
     // Solve the model given an initial state and polynomial coefficients.
-    // Return the first actuatotions.
-    std::vector<double> Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, MPCparams params);
+    // Return the first actuations.
+    std::vector<double> Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
+
+    void set_params(MPCparams params);
+
+private:
+    MPCparams _params;
 };
 
 #endif
