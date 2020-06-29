@@ -44,10 +44,8 @@ public:
     // Return the first actuations.
     std::vector<double> Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
 
-    void set_params(MPCparams params);
 
-private:
-    MPCparams _params;
+    MPCparams params;
 };
 
 #endif

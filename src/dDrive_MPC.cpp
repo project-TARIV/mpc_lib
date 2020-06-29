@@ -121,13 +121,13 @@ public:
     }
 };
 
-MPC::MPC() : _params{} {}
+MPC::MPC() = default;
 
 MPC::~MPC() = default;
 
 std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
-    varIndices.setIndices(_params.N);
+    varIndices.setIndices(params.N);
 
     bool ok = true;
     typedef CPPAD_TESTVECTOR(double) Dvector;
@@ -144,9 +144,9 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     // element vector and there are 10 timesteps. The number of variables is:
     //
     // 4 * 10 + 2 * 9
-    size_t n_vars = 6 * _params.N + 2 * (_params.N - 1);
+    size_t n_vars = 6 * params.N + 2 * (params.N - 1);
     // TODO: Set the number of constraints
-    size_t n_constraints = 6 * _params.N;
+    size_t n_constraints = 6 * params.N;
 
     // Initial value of the independent variables.
     // SHOULD BE 0 besides initial state.
@@ -168,16 +168,16 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
     // TODO: Set lower and upper limits for variables.
     for (int i = 0; i < varIndices.omega_start; i++) {
-        vars_lowerbound[i] = -_params.BOUND_VALUE;
-        vars_upperbound[i] = _params.BOUND_VALUE;
+        vars_lowerbound[i] = -params.BOUND_VALUE;
+        vars_upperbound[i] = params.BOUND_VALUE;
     }
     for (int i = varIndices.omega_start; i < varIndices.acc_start; i++) {
-        vars_lowerbound[i] = -_params.MAX_OMEGA;
-        vars_upperbound[i] = _params.MAX_OMEGA;
+        vars_lowerbound[i] = -params.MAX_OMEGA;
+        vars_upperbound[i] = params.MAX_OMEGA;
     }
     for (int i = varIndices.acc_start; i < n_vars; i++) {
-        vars_lowerbound[i] = -_params.MAX_THROTTLE;
-        vars_upperbound[i] = _params.MAX_THROTTLE;
+        vars_lowerbound[i] = -params.MAX_THROTTLE;
+        vars_upperbound[i] = params.MAX_THROTTLE;
     }
     // Lower and upper limits for the constraints
     // Should be 0 besides initial state.
@@ -203,7 +203,7 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     constraints_upperbound[varIndices.etheta_start] = etheta;
 
     // object that computes objective and constraints
-    FG_eval fg_eval(coeffs, _params);
+    FG_eval fg_eval(coeffs, params);
 
     //
     // NOTE: You don't have to worry about these options
@@ -233,7 +233,9 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
     // Check some of the solution values
     ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
-    // TODO: Use ^
+    if (!ok) {
+        std::cout << "NOT OKAY " << std::endl;
+    }
 
     // Cost
     std::cout << "COST  : " << solution.obj_value << std::endl;
@@ -241,19 +243,16 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     // TODO: Return the first actuator values. The variables can be accessed with
     // `solution.x[i]`.
     std::vector<double> result;
-
+    std::cout << solution.x.size() << std::endl;
     result.push_back(solution.x[varIndices.omega_start]);
+
     result.push_back(solution.x[varIndices.acc_start]);
 
     // Add "future" solutions (where MPC is going)
-    for (int i = 0; i < _params.N - 1; ++i) {
+    for (int i = 0; i < params.N - 1; ++i) {
         result.push_back(solution.x[varIndices.x_start + i + 1]);
         result.push_back(solution.x[varIndices.y_start + i + 1]);
     }
 
     return result;
-}
-
-void MPC::set_params(MPCparams params) {
-    _params = params;
 }

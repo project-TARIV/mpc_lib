@@ -5,7 +5,7 @@
 #include <Eigen-3.3/Eigen/QR>
 #include <Eigen-3.3/Eigen/Core>
 
-double pi(void);
+double pi();
 
 double deg2rad(double x);
 double rad2deg(double x);
