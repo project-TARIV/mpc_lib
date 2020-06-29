@@ -34,6 +34,10 @@ struct VarIndices {
     void setIndices(int N);
 };
 
+struct State {
+    double x, y, theta, v, cte, etheta;
+};
+
 class MPC {
 public:
     MPC();
@@ -42,7 +46,7 @@ public:
 
     // Solve the model given an initial state and polynomial coefficients.
     // Return the first actuations.
-    std::vector<double> Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
+    bool Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result);
 
 
     MPCparams params;

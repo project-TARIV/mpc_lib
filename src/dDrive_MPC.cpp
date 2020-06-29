@@ -6,6 +6,8 @@
 #include <utility>
 
 using CppAD::AD;
+typedef CPPAD_TESTVECTOR(double) Dvector;
+
 
 void VarIndices::setIndices(int N) {
     x_start = 0;
@@ -18,7 +20,7 @@ void VarIndices::setIndices(int N) {
     acc_start = omega_start + N - 1;
 }
 
-struct VarIndices varIndices;
+struct VarIndices indices;
 
 class FG_eval {
     MPCparams &_params;
@@ -39,20 +41,20 @@ public:
 
         // Reference State Cost
         for (int t = 0; t < _params.N; t++) {
-            fg[0] += _params.W_CTE * CppAD::pow(vars[varIndices.cte_start + t] - _params.ref_cte, 2);
-            fg[0] += _params.W_ETHETA * CppAD::pow(vars[varIndices.etheta_start + t] - _params.ref_etheta, 2);
-            fg[0] += _params.W_VEL * CppAD::pow(vars[varIndices.v_start + t] - _params.ref_v, 2);
+            fg[0] += _params.W_CTE * CppAD::pow(vars[indices.cte_start + t] - _params.ref_cte, 2);
+            fg[0] += _params.W_ETHETA * CppAD::pow(vars[indices.etheta_start + t] - _params.ref_etheta, 2);
+            fg[0] += _params.W_VEL * CppAD::pow(vars[indices.v_start + t] - _params.ref_v, 2);
         }
         for (int t = 0; t < _params.N - 1; t++) {
-            fg[0] += _params.W_OMEGA * CppAD::pow(vars[varIndices.omega_start + t], 2);
-            fg[0] += _params.W_ACC * CppAD::pow(vars[varIndices.acc_start + t], 2);
+            fg[0] += _params.W_OMEGA * CppAD::pow(vars[indices.omega_start + t], 2);
+            fg[0] += _params.W_ACC * CppAD::pow(vars[indices.acc_start + t], 2);
         }
         // Smoother transitions (less jerks)
         for (int t = 0; t < _params.N - 2; t++) {
             fg[0] += _params.W_ACC_D *
-                     CppAD::pow(vars[varIndices.acc_start + t + 1] - vars[varIndices.acc_start + t], 2);
+                     CppAD::pow(vars[indices.acc_start + t + 1] - vars[indices.acc_start + t], 2);
             fg[0] += _params.W_OMEGA_D *
-                     CppAD::pow(vars[varIndices.omega_start + t + 1] - vars[varIndices.omega_start + t], 2);
+                     CppAD::pow(vars[indices.omega_start + t + 1] - vars[indices.omega_start + t], 2);
         }
         //
         // Setup Constraints
@@ -63,34 +65,34 @@ public:
         // We add 1 to each of the starting indices due to cost being located at
         // index 0 of `fg`.
         // This bumps up the position of all the other values.
-        fg[1 + varIndices.x_start] = vars[varIndices.x_start];
-        fg[1 + varIndices.y_start] = vars[varIndices.y_start];
-        fg[1 + varIndices.theta_start] = vars[varIndices.theta_start];
-        fg[1 + varIndices.v_start] = vars[varIndices.v_start];
-        fg[1 + varIndices.cte_start] = vars[varIndices.cte_start];
-        fg[1 + varIndices.etheta_start] = vars[varIndices.etheta_start];
+        fg[1 + indices.x_start] = vars[indices.x_start];
+        fg[1 + indices.y_start] = vars[indices.y_start];
+        fg[1 + indices.theta_start] = vars[indices.theta_start];
+        fg[1 + indices.v_start] = vars[indices.v_start];
+        fg[1 + indices.cte_start] = vars[indices.cte_start];
+        fg[1 + indices.etheta_start] = vars[indices.etheta_start];
 
         // The rest of the constraints
         for (int t = 0; t < _params.N - 1; t++) {
 
             // Time : T + 1
-            AD<double> x1 = vars[varIndices.x_start + t + 1];
-            AD<double> y1 = vars[varIndices.y_start + t + 1];
-            AD<double> theta1 = vars[varIndices.theta_start + t + 1];
-            AD<double> v1 = vars[varIndices.v_start + t + 1];
-            AD<double> cte1 = vars[varIndices.cte_start + t + 1];
-            AD<double> etheta1 = vars[varIndices.etheta_start + t + 1];
+            AD<double> x1 = vars[indices.x_start + t + 1];
+            AD<double> y1 = vars[indices.y_start + t + 1];
+            AD<double> theta1 = vars[indices.theta_start + t + 1];
+            AD<double> v1 = vars[indices.v_start + t + 1];
+            AD<double> cte1 = vars[indices.cte_start + t + 1];
+            AD<double> etheta1 = vars[indices.etheta_start + t + 1];
 
             // Time : T
-            AD<double> x0 = vars[varIndices.x_start + t];
-            AD<double> y0 = vars[varIndices.y_start + t];
-            AD<double> theta0 = vars[varIndices.theta_start + t];
-            AD<double> v0 = vars[varIndices.v_start + t];
-            AD<double> cte0 = vars[varIndices.cte_start + t];
-            AD<double> etheta0 = vars[varIndices.etheta_start + t];
+            AD<double> x0 = vars[indices.x_start + t];
+            AD<double> y0 = vars[indices.y_start + t];
+            AD<double> theta0 = vars[indices.theta_start + t];
+            AD<double> v0 = vars[indices.v_start + t];
+            AD<double> cte0 = vars[indices.cte_start + t];
+            AD<double> etheta0 = vars[indices.etheta_start + t];
 
-            AD<double> w0 = vars[varIndices.omega_start + t];
-            AD<double> a0 = vars[varIndices.acc_start + t];
+            AD<double> w0 = vars[indices.omega_start + t];
+            AD<double> a0 = vars[indices.acc_start + t];
 
             AD<double> f0 = 0.0;
             for (int i = 0; i < coeffs.size(); i++) {
@@ -110,13 +112,13 @@ public:
             // This is also CppAD can compute derivatives and pass
             // these to the solver.
 
-            fg[2 + varIndices.x_start + t] = x1 - (x0 + v0 * CppAD::cos(theta0) * _params.dt);
-            fg[2 + varIndices.y_start + t] = y1 - (y0 + v0 * CppAD::sin(theta0) * _params.dt);
-            fg[2 + varIndices.theta_start + t] = theta1 - (theta0 + w0 * _params.dt);
-            fg[2 + varIndices.v_start + t] = v1 - (v0 + a0 * _params.dt);
+            fg[2 + indices.x_start + t] = x1 - (x0 + v0 * CppAD::cos(theta0) * _params.dt);
+            fg[2 + indices.y_start + t] = y1 - (y0 + v0 * CppAD::sin(theta0) * _params.dt);
+            fg[2 + indices.theta_start + t] = theta1 - (theta0 + w0 * _params.dt);
+            fg[2 + indices.v_start + t] = v1 - (v0 + a0 * _params.dt);
 
-            fg[2 + varIndices.cte_start + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(etheta0) * _params.dt));
-            fg[2 + varIndices.etheta_start + t] = etheta1 - ((theta0 - traj_grad0) + w0 * _params.dt);
+            fg[2 + indices.cte_start + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(etheta0) * _params.dt));
+            fg[2 + indices.etheta_start + t] = etheta1 - ((theta0 - traj_grad0) + w0 * _params.dt);
         }
     }
 };
@@ -125,57 +127,51 @@ MPC::MPC() = default;
 
 MPC::~MPC() = default;
 
-std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
+bool MPC::Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result) {
 
-    varIndices.setIndices(params.N);
+    indices.setIndices(params.N); // TODO: move to set params
 
     bool ok = true;
-    typedef CPPAD_TESTVECTOR(double) Dvector;
 
-    const double x = state[0];
-    const double y = state[1];
-    const double theta = state[2];
-    const double v = state[3];
-    const double cte = state[4];
-    const double etheta = state[5];
 
     // TODO: Set the number of model variables (includes both states and inputs).
     // For example: If the state is a 4 element vector, the actuators is a 2
     // element vector and there are 10 timesteps. The number of variables is:
     //
     // 4 * 10 + 2 * 9
-    size_t n_vars = 6 * params.N + 2 * (params.N - 1);
+    const size_t n_vars = 6 * params.N + 2 * (params.N - 1);
+
     // TODO: Set the number of constraints
-    size_t n_constraints = 6 * params.N;
+    const size_t n_constraints = 6 * params.N;
 
     // Initial value of the independent variables.
     // SHOULD BE 0 besides initial state.
     Dvector vars(n_vars);
-    for (int i = 0; i < n_vars; i++) {
+    for (int i = 0; i < n_vars; i++) { // probably a better way
         vars[i] = 0;
     }
 
     // set the initial variable values
-    vars[varIndices.x_start] = x;
-    vars[varIndices.y_start] = y;
-    vars[varIndices.theta_start] = theta;
-    vars[varIndices.v_start] = v;
-    vars[varIndices.cte_start] = cte;
-    vars[varIndices.etheta_start] = etheta;
+    vars[indices.x_start] = state.x;
+    vars[indices.y_start] = state.y;
+    vars[indices.theta_start] = state.theta;
+    vars[indices.v_start] = state.v;
+    vars[indices.cte_start] = state.cte;
+    vars[indices.etheta_start] = state.etheta;
 
     Dvector vars_lowerbound(n_vars);
     Dvector vars_upperbound(n_vars);
 
     // TODO: Set lower and upper limits for variables.
-    for (int i = 0; i < varIndices.omega_start; i++) {
+    for (int i = 0; i < indices.omega_start; i++) {
         vars_lowerbound[i] = -params.BOUND_VALUE;
         vars_upperbound[i] = params.BOUND_VALUE;
     }
-    for (int i = varIndices.omega_start; i < varIndices.acc_start; i++) {
+    for (int i = indices.omega_start; i < indices.acc_start; i++) {
         vars_lowerbound[i] = -params.MAX_OMEGA;
         vars_upperbound[i] = params.MAX_OMEGA;
     }
-    for (int i = varIndices.acc_start; i < n_vars; i++) {
+    for (int i = indices.acc_start; i < n_vars; i++) {
         vars_lowerbound[i] = -params.MAX_THROTTLE;
         vars_upperbound[i] = params.MAX_THROTTLE;
     }
@@ -188,19 +184,19 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
         constraints_lowerbound[i] = 0;
         constraints_upperbound[i] = 0;
     }
-    constraints_lowerbound[varIndices.x_start] = x;
-    constraints_lowerbound[varIndices.y_start] = y;
-    constraints_lowerbound[varIndices.theta_start] = theta;
-    constraints_lowerbound[varIndices.v_start] = v;
-    constraints_lowerbound[varIndices.cte_start] = cte;
-    constraints_lowerbound[varIndices.etheta_start] = etheta;
+    constraints_lowerbound[indices.x_start] = state.x;
+    constraints_lowerbound[indices.y_start] = state.y;
+    constraints_lowerbound[indices.theta_start] = state.theta;
+    constraints_lowerbound[indices.v_start] = state.v;
+    constraints_lowerbound[indices.cte_start] = state.cte;
+    constraints_lowerbound[indices.etheta_start] = state.etheta;
 
-    constraints_upperbound[varIndices.x_start] = x;
-    constraints_upperbound[varIndices.y_start] = y;
-    constraints_upperbound[varIndices.theta_start] = theta;
-    constraints_upperbound[varIndices.v_start] = v;
-    constraints_upperbound[varIndices.cte_start] = cte;
-    constraints_upperbound[varIndices.etheta_start] = etheta;
+    constraints_upperbound[indices.x_start] = state.x;
+    constraints_upperbound[indices.y_start] = state.y;
+    constraints_upperbound[indices.theta_start] = state.theta;
+    constraints_upperbound[indices.v_start] = state.v;
+    constraints_upperbound[indices.cte_start] = state.cte;
+    constraints_upperbound[indices.etheta_start] = state.etheta;
 
     // object that computes objective and constraints
     FG_eval fg_eval(coeffs, params);
@@ -232,9 +228,9 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
             constraints_upperbound, fg_eval, solution);
 
     // Check some of the solution values
-    ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
-    if (!ok) {
+    if (solution.status != CppAD::ipopt::solve_result<Dvector>::success) {
         std::cout << "NOT OKAY " << std::endl;
+        return false;
     }
 
     // Cost
@@ -242,17 +238,13 @@ std::vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
     // TODO: Return the first actuator values. The variables can be accessed with
     // `solution.x[i]`.
-    std::vector<double> result;
     std::cout << solution.x.size() << std::endl;
-    result.push_back(solution.x[varIndices.omega_start]);
 
-    result.push_back(solution.x[varIndices.acc_start]);
-
+    result = {solution.x[indices.omega_start], solution.x[indices.acc_start]};
     // Add "future" solutions (where MPC is going)
     for (int i = 0; i < params.N - 1; ++i) {
-        result.push_back(solution.x[varIndices.x_start + i + 1]);
-        result.push_back(solution.x[varIndices.y_start + i + 1]);
+        result.push_back(solution.x[indices.x_start + i + 1]);
+        result.push_back(solution.x[indices.y_start + i + 1]);
     }
-
-    return result;
+    return true;
 }
