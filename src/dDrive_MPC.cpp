@@ -131,7 +131,7 @@ bool MPC::Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> 
 
     indices.setIndices(params.N); // TODO: move to set params
 
-    bool ok = true;
+    // bool ok = true;
 
 
     // TODO: Set the number of model variables (includes both states and inputs).
@@ -229,7 +229,26 @@ bool MPC::Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> 
 
     // Check some of the solution values
     if (solution.status != CppAD::ipopt::solve_result<Dvector>::success) {
-        std::cout << "NOT OKAY " << std::endl;
+        std::cout << "NOT OKAY " << solution.status << std::endl;
+        /*
+           enum status_type {
+                not_defined,
+                success,
+                maxiter_exceeded,
+                stop_at_tiny_step,
+                stop_at_acceptable_point,
+                local_infeasibility,
+                user_requested_stop,
+                feasible_point_found,
+                diverging_iterates,
+                restoration_failure,
+                error_in_step_computation,
+                invalid_number_detected,
+                too_few_degrees_of_freedom,
+                internal_error,
+                unknown
+            };
+         */
         return false;
     }
 
