@@ -1,6 +1,5 @@
 #include <mpc_lib/dDrive_MPC.h>
 
-#include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
 
 using CppAD::AD;
@@ -16,143 +15,142 @@ struct VarIndices {
         y_start = x_start + N;
         theta_start = y_start + N;
         v_start = theta_start + N;
+
         cte_start = v_start + N;
         etheta_start = cte_start + N;
+
         omega_start = etheta_start + N;
         acc_start = omega_start + N - 1;
     }
 } indices;
 
-class FG_eval {
-    mpc_lib::Params &_params;
-public:
-    using ADvector = CppAD::vector<CppAD::AD<double>>; // Can also use std::vector or std::valarray
 
-    // Fitted polynomial coefficients
-    Eigen::VectorXd &coeffs;
+mpc_lib::FG_eval::FG_eval(mpc_lib::Params &params) : _params(params) {}
 
-    FG_eval(Eigen::VectorXd &coeffs, mpc_lib::Params &params) : _params(params), coeffs(coeffs) {}
+void mpc_lib::FG_eval::operator()(FG_eval::ADvector &fg, const FG_eval::ADvector &vars) {
+    // `fg` a vector of the cost constraints, `vars` is a vector of variable values (state & actuators)
 
-    void operator()(ADvector &fg, const ADvector &vars) {
-        // `fg` a vector of the cost constraints, `vars` is a vector of variable values (state & actuators)
+    // The cost is stored is the first element of `fg`.
+    // Any additions to the cost should be added to `fg[0]`.
+    fg[0] = 0;
 
-        // The cost is stored is the first element of `fg`.
-        // Any additions to the cost should be added to `fg[0]`.
-        fg[0] = 0;
-
-        // Reference State Cost
-        for (int t = 0; t < _params.N; t++) {
-            fg[0] += _params.W_CTE * CppAD::pow(vars[indices.cte_start + t] - _params.ref_cte, 2);
-            fg[0] += _params.W_ETHETA * CppAD::pow(vars[indices.etheta_start + t] - _params.ref_etheta, 2);
-            fg[0] += _params.W_VEL * CppAD::pow(vars[indices.v_start + t] - _params.ref_v, 2);
-        }
-        for (int t = 0; t < _params.N - 1; t++) {
-            fg[0] += _params.W_OMEGA * CppAD::pow(vars[indices.omega_start + t], 2);
-            fg[0] += _params.W_ACC * CppAD::pow(vars[indices.acc_start + t], 2);
-        }
-        // Smoother transitions (less jerks)
-        for (int t = 0; t < _params.N - 2; t++) {
-            fg[0] += _params.W_ACC_D *
-                     CppAD::pow(vars[indices.acc_start + t + 1] - vars[indices.acc_start + t], 2);
-            fg[0] += _params.W_OMEGA_D *
-                     CppAD::pow(vars[indices.omega_start + t + 1] - vars[indices.omega_start + t], 2);
-        }
-        //
-        // Setup Constraints
-        //
-
-        // Initial constraints
-        //
-        // We add 1 to each of the starting indices due to cost being located at
-        // index 0 of `fg`.
-        // This bumps up the position of all the other values.
-        fg[1 + indices.x_start] = vars[indices.x_start];
-        fg[1 + indices.y_start] = vars[indices.y_start];
-        fg[1 + indices.theta_start] = vars[indices.theta_start];
-        fg[1 + indices.v_start] = vars[indices.v_start];
-        fg[1 + indices.cte_start] = vars[indices.cte_start];
-        fg[1 + indices.etheta_start] = vars[indices.etheta_start];
-
-        // The rest of the constraints
-        for (int t = 0; t < _params.N - 1; t++) {
-
-            // Time : T + 1
-            AD<double> x1 = vars[indices.x_start + t + 1];
-            AD<double> y1 = vars[indices.y_start + t + 1];
-            AD<double> theta1 = vars[indices.theta_start + t + 1];
-            AD<double> v1 = vars[indices.v_start + t + 1];
-            AD<double> cte1 = vars[indices.cte_start + t + 1];
-            AD<double> etheta1 = vars[indices.etheta_start + t + 1];
-
-            // Time : T
-            AD<double> x0 = vars[indices.x_start + t];
-            AD<double> y0 = vars[indices.y_start + t];
-            AD<double> theta0 = vars[indices.theta_start + t];
-            AD<double> v0 = vars[indices.v_start + t];
-            AD<double> cte0 = vars[indices.cte_start + t];
-            AD<double> etheta0 = vars[indices.etheta_start + t];
-
-            AD<double> w0 = vars[indices.omega_start + t];
-            AD<double> a0 = vars[indices.acc_start + t];
-
-            AD<double> f0 = 0.0;
-            for (int i = 0; i < coeffs.size(); i++) {
-                f0 += coeffs[i] * CppAD::pow(x0, i);
-            }
-
-            AD<double> traj_grad0 = 0.0;
-            for (int i = 1; i < coeffs.size(); i++) {
-                traj_grad0 += i * coeffs[i] * CppAD::pow(x0, i - 1);
-            }
-            traj_grad0 = CppAD::atan(traj_grad0);
-
-            // Here's `x` to get you started.
-            // The idea here is to constraint this value to be 0.
-            //
-            // NOTE: The use of `AD<double>` and use of `CppAD`!
-            // This is also CppAD can compute derivatives and pass
-            // these to the solver.
-
-            fg[2 + indices.x_start + t] = x1 - (x0 + v0 * CppAD::cos(theta0) * _params.dt);
-            fg[2 + indices.y_start + t] = y1 - (y0 + v0 * CppAD::sin(theta0) * _params.dt);
-            fg[2 + indices.theta_start + t] = theta1 - (theta0 + w0 * _params.dt);
-            fg[2 + indices.v_start + t] = v1 - (v0 + a0 * _params.dt);
-
-            fg[2 + indices.cte_start + t] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(etheta0) * _params.dt));
-            fg[2 + indices.etheta_start + t] = etheta1 - ((theta0 - traj_grad0) + w0 * _params.dt);
-        }
+    // Cost due to cte, etheta, and low velocity
+    for (int t = 0; t < _params.N; t++) {
+        fg[0] += _params.W_CTE * CppAD::pow(vars[indices.cte_start + t] - _params.ref_cte, 2);
+        fg[0] += _params.W_ETHETA * CppAD::pow(vars[indices.etheta_start + t] - _params.ref_etheta, 2);
+        fg[0] += _params.W_VEL * CppAD::pow(vars[indices.v_start + t] - _params.ref_v, 2);
     }
-};
 
-mpc_lib::MPC::MPC() = default;
+    // Cost due to omega and acceleration, We dont calculate omeaga, acc at final step.
+    for (int t = 0; t < _params.N - 1; t++) {
+        fg[0] += _params.W_OMEGA * CppAD::pow(vars[indices.omega_start + t], 2);
+        fg[0] += _params.W_ACC * CppAD::pow(vars[indices.acc_start + t], 2);
+    }
+
+    // Smoother transitions (less jerks) Cost due to change in acceleration and omega.
+    for (int t = 0; t < _params.N - 2; t++) {
+        fg[0] += _params.W_ACC_D *
+                 CppAD::pow(vars[indices.acc_start + t + 1] - vars[indices.acc_start + t], 2);
+        fg[0] += _params.W_OMEGA_D *
+                 CppAD::pow(vars[indices.omega_start + t + 1] - vars[indices.omega_start + t], 2);
+    }
+
+    //
+    // Setup Constraints
+    //
+
+    // Initial constraints
+    //
+    // We add 1 to each of the starting indices due to cost being located at
+    // index 0 of `fg`.
+    // This bumps up the position of all the other values.
+
+
+    // Set initial state
+    // TODO: Why is something which does not change a constraint???
+    fg[1 + indices.x_start] = vars[indices.x_start];
+    fg[1 + indices.y_start] = vars[indices.y_start];
+    fg[1 + indices.theta_start] = vars[indices.theta_start];
+    fg[1 + indices.v_start] = vars[indices.v_start];
+    fg[1 + indices.cte_start] = vars[indices.cte_start];
+    fg[1 + indices.etheta_start] = vars[indices.etheta_start];
+
+    // Calculate State at each time step
+    for (int t = 0; t < _params.N - 1; t++) {
+
+        // Time : T + 1
+        AD<double> x1 = vars[indices.x_start + t + 1];
+        AD<double> y1 = vars[indices.y_start + t + 1];
+        AD<double> theta1 = vars[indices.theta_start + t + 1];
+        AD<double> v1 = vars[indices.v_start + t + 1];
+        AD<double> cte1 = vars[indices.cte_start + t + 1];
+        AD<double> etheta1 = vars[indices.etheta_start + t + 1];
+
+        // Time : T
+        AD<double> x0 = vars[indices.x_start + t];
+        AD<double> y0 = vars[indices.y_start + t];
+        AD<double> theta0 = vars[indices.theta_start + t];
+        AD<double> v0 = vars[indices.v_start + t];
+        AD<double> cte0 = vars[indices.cte_start + t];
+        AD<double> etheta0 = vars[indices.etheta_start + t];
+
+        AD<double> w0 = vars[indices.omega_start + t];
+        AD<double> a0 = vars[indices.acc_start + t];
+
+        AD<double> f0 = 0.0;
+        for (int i = 0; i < coeffs.size(); i++) {
+            f0 += coeffs[i] * CppAD::pow(x0, i);
+        }
+
+        AD<double> traj_grad0 = 0.0;
+        for (int i = 1; i < coeffs.size(); i++) {
+            traj_grad0 += i * coeffs[i] * CppAD::pow(x0, i - 1);
+        }
+        traj_grad0 = CppAD::atan(traj_grad0);
+
+
+        // NOTE: The use of `AD<double>` and use of `CppAD`!
+        // This is also CppAD can compute derivatives and pass
+        // these to the solver.
+
+        fg[1 + indices.x_start + t + 1] = x1 - (x0 + v0 * CppAD::cos(theta0) * _params.dt);
+        fg[1 + indices.y_start + t + 1] = y1 - (y0 + v0 * CppAD::sin(theta0) * _params.dt);
+        fg[1 + indices.theta_start + t + 1] = theta1 - (theta0 + w0 * _params.dt);
+        fg[1 + indices.v_start + t + 1] = v1 - (v0 + a0 * _params.dt);
+        fg[1 + indices.cte_start + t + 1] = cte1 - ((f0 - y0) + (v0 * CppAD::sin(etheta0) * _params.dt));
+        fg[1 + indices.etheta_start + t + 1] = etheta1 - ((theta0 - traj_grad0) + w0 * _params.dt);
+    }
+}
+
+
+mpc_lib::MPC::MPC() : params{}, fg_eval(params) {}
 
 mpc_lib::MPC::~MPC() = default;
 
-bool mpc_lib::MPC::solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, std::vector<double> &result) {
+bool mpc_lib::MPC::solve(const mpc_lib::State &state, const Eigen::VectorXd &coeffs, std::vector<double> &result) {
+    fg_eval.coeffs = coeffs;
 
-    indices.setIndices(params.N); // TODO: move to set params
-
-    // bool ok = true;
+    indices.setIndices(params.N); // TODO: move to set params function
 
 
-    // TODO: Set the number of model variables (includes both states and inputs).
-    // For example: If the state is a 4 element vector, the actuators is a 2
-    // element vector and there are 10 timesteps. The number of variables is:
-    //
     // 4 * 10 + 2 * 9
+    // State is 6 elements (x,y,theta,v, cta, etheta], And we have 2 controls [omega, acceleration]
     const size_t n_vars = 6u * params.N + 2u * (params.N - 1u);
 
-    // TODO: Set the number of constraints
+    // Currently constraining th estate
     const size_t n_constraints = 6u * params.N;
 
     // Initial value of the independent variables.
     // SHOULD BE 0 besides initial state.
+    // Independent vars are basically the state and control of the robot at each timestep
+    // vars = [x0, y0, theta0, v0, cte, etheta, omega0, accel0, x1, y1, v1, .... etheta
     Dvector vars(n_vars);
-    for (int i = 0; i < n_vars; i++) { // probably a better way
+
+    for (int i = 0; i < n_vars; i++) { // probably not required
         vars[i] = 0;
     }
 
-    // set the initial variable values
+    // Set the values of the initial state.
     vars[indices.x_start] = state.x;
     vars[indices.y_start] = state.y;
     vars[indices.theta_start] = state.theta;
@@ -160,10 +158,12 @@ bool mpc_lib::MPC::solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, st
     vars[indices.cte_start] = state.cte;
     vars[indices.etheta_start] = state.etheta;
 
+    // TODO: Why is the initial state in a variable ?? Isnt we are explicitly setting it constant later anyways
+
     Dvector vars_lowerbound(n_vars);
     Dvector vars_upperbound(n_vars);
 
-    // TODO: Set lower and upper limits for variables.
+    // Set lower and upper limits for variables at each timestop.
     for (auto i = 0; i < indices.omega_start; i++) {
         vars_lowerbound[i] = -params.BOUND_VALUE;
         vars_upperbound[i] = params.BOUND_VALUE;
@@ -181,10 +181,12 @@ bool mpc_lib::MPC::solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, st
     Dvector constraints_lowerbound(n_constraints);
     Dvector constraints_upperbound(n_constraints);
 
-    for (int i = 0; i < n_constraints; i++) {
+    for (int i = 0; i < n_constraints; i++) { // Is this required
         constraints_lowerbound[i] = 0;
         constraints_upperbound[i] = 0;
     }
+
+    // TODO: Bounding something that never changes...
     constraints_lowerbound[indices.x_start] = state.x;
     constraints_lowerbound[indices.y_start] = state.y;
     constraints_lowerbound[indices.theta_start] = state.theta;
@@ -200,7 +202,6 @@ bool mpc_lib::MPC::solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, st
     constraints_upperbound[indices.etheta_start] = state.etheta;
 
     // object that computes objective and constraints
-    FG_eval fg_eval(coeffs, params);
 
     //
     // NOTE: You don't have to worry about these options

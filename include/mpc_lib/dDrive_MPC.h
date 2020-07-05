@@ -3,6 +3,7 @@
 
 #include <eigen3/Eigen/QR>
 #include <eigen3/Eigen/Core>
+#include <cppad/cppad.hpp>
 
 #include <vector>
 
@@ -33,7 +34,23 @@ namespace mpc_lib {
         double x, y, theta, v, cte, etheta;
     };
 
+    class FG_eval {
+        mpc_lib::Params &_params;
+    public:
+
+        // Below decleration required by ipopt
+        // Fitted polynomial coefficients
+        Eigen::VectorXd coeffs;
+        using ADvector = CppAD::vector<CppAD::AD<double>>; // Can also use std::vector or std::valarray
+
+        explicit FG_eval(mpc_lib::Params &params);
+
+        void operator()(ADvector &fg, const ADvector &vars);
+    };
+
     class MPC {
+        FG_eval fg_eval;
+
     public:
         MPC();
 
@@ -41,7 +58,7 @@ namespace mpc_lib {
 
         // Solve the model given an initial state and polynomial coefficients.
         // Return the first actuations.
-        bool solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result);
+        bool solve(const State &state, const Eigen::VectorXd &coeffs, std::vector<double> &result);
 
 
         Params params;
