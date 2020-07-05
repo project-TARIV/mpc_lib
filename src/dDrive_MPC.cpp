@@ -1,15 +1,13 @@
 #include <mpc_lib/dDrive_MPC.h>
-#include <Eigen-3.3/Eigen/QR>
-#include <Eigen-3.3/Eigen/Core>
+
 #include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
 #include <utility>
 
 using CppAD::AD;
-typedef CPPAD_TESTVECTOR(double) Dvector;
+using Dvector = CppAD::vector<double>; // Can also use std::vector or std::valarray
 
-
-void VarIndices::setIndices(int N) {
+void mpc_lib::VarIndices::setIndices(int N) {
     x_start = 0;
     y_start = x_start + N;
     theta_start = y_start + N;
@@ -20,17 +18,17 @@ void VarIndices::setIndices(int N) {
     acc_start = omega_start + N - 1;
 }
 
-struct VarIndices indices;
+struct mpc_lib::VarIndices indices;
 
 class FG_eval {
-    MPCparams &_params;
+    mpc_lib::Params &_params;
 public:
+    using ADvector = CppAD::vector<CppAD::AD<double>>; // Can also use std::vector or std::valarray
+
     // Fitted polynomial coefficients
     Eigen::VectorXd &coeffs;
 
-    FG_eval(Eigen::VectorXd &coeffs, MPCparams &params) : _params(params), coeffs(coeffs) {}
-
-    typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
+    FG_eval(Eigen::VectorXd &coeffs, mpc_lib::Params &params) : _params(params), coeffs(coeffs) {}
 
     void operator()(ADvector &fg, const ADvector &vars) {
         // `fg` a vector of the cost constraints, `vars` is a vector of variable values (state & actuators)
@@ -123,11 +121,11 @@ public:
     }
 };
 
-MPC::MPC() = default;
+mpc_lib::MPC::MPC() = default;
 
-MPC::~MPC() = default;
+mpc_lib::MPC::~MPC() = default;
 
-bool MPC::Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result) {
+bool mpc_lib::MPC::Solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, std::vector<double> &result) {
 
     indices.setIndices(params.N); // TODO: move to set params
 
@@ -139,10 +137,10 @@ bool MPC::Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> 
     // element vector and there are 10 timesteps. The number of variables is:
     //
     // 4 * 10 + 2 * 9
-    const size_t n_vars = 6 * params.N + 2 * (params.N - 1);
+    const size_t n_vars = 6u * params.N + 2u * (params.N - 1u);
 
     // TODO: Set the number of constraints
-    const size_t n_constraints = 6 * params.N;
+    const size_t n_constraints = 6u * params.N;
 
     // Initial value of the independent variables.
     // SHOULD BE 0 besides initial state.
@@ -163,15 +161,15 @@ bool MPC::Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> 
     Dvector vars_upperbound(n_vars);
 
     // TODO: Set lower and upper limits for variables.
-    for (int i = 0; i < indices.omega_start; i++) {
+    for (auto i = 0; i < indices.omega_start; i++) {
         vars_lowerbound[i] = -params.BOUND_VALUE;
         vars_upperbound[i] = params.BOUND_VALUE;
     }
-    for (int i = indices.omega_start; i < indices.acc_start; i++) {
+    for (auto i = indices.omega_start; i < indices.acc_start; i++) {
         vars_lowerbound[i] = -params.MAX_OMEGA;
         vars_upperbound[i] = params.MAX_OMEGA;
     }
-    for (int i = indices.acc_start; i < n_vars; i++) {
+    for (auto i = indices.acc_start; i < n_vars; i++) {
         vars_lowerbound[i] = -params.MAX_THROTTLE;
         vars_upperbound[i] = params.MAX_THROTTLE;
     }

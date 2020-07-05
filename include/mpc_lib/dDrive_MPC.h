@@ -1,55 +1,59 @@
 #ifndef D_MPC
 #define D_MPC
 
-#include <Eigen-3.3/Eigen/QR>
-#include <Eigen-3.3/Eigen/Core>
+#include <eigen3/Eigen/QR>
+#include <eigen3/Eigen/Core>
+
 #include <vector>
 
-struct MPCparams {
-    int N{};
-    double dt{};
 
-    double ref_cte{};
-    double ref_etheta{};
-    double ref_v{};
+namespace mpc_lib {
 
-    double MAX_OMEGA{};
-    double MAX_THROTTLE{};
-    double BOUND_VALUE{1.0e3};
+    struct Params {
+        int N{};
+        double dt{};
 
-    double W_CTE{};
-    double W_ETHETA{};
-    double W_VEL{};
-    double W_OMEGA{};
-    double W_ACC{};
-    double W_OMEGA_D{};
-    double W_ACC_D{};
-};
+        double ref_cte{};
+        double ref_etheta{};
+        double ref_v{};
 
-struct VarIndices {
-    size_t x_start, y_start, theta_start;
-    size_t v_start, omega_start, acc_start;
-    size_t cte_start, etheta_start;
+        double MAX_OMEGA{};
+        double MAX_THROTTLE{};
+        double BOUND_VALUE{1.0e3};
 
-    void setIndices(int N);
-};
+        double W_CTE{};
+        double W_ETHETA{};
+        double W_VEL{};
+        double W_OMEGA{};
+        double W_ACC{};
+        double W_OMEGA_D{};
+        double W_ACC_D{};
+    };
 
-struct State {
-    double x, y, theta, v, cte, etheta;
-};
+    struct VarIndices {
+        size_t x_start, y_start, theta_start;
+        size_t v_start, omega_start, acc_start;
+        size_t cte_start, etheta_start;
 
-class MPC {
-public:
-    MPC();
+        void setIndices(int N);
+    };
 
-    virtual ~MPC();
+    struct State {
+        double x, y, theta, v, cte, etheta;
+    };
 
-    // Solve the model given an initial state and polynomial coefficients.
-    // Return the first actuations.
-    bool Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result);
+    class MPC {
+    public:
+        MPC();
+
+        virtual ~MPC();
+
+        // Solve the model given an initial state and polynomial coefficients.
+        // Return the first actuations.
+        bool Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result);
 
 
-    MPCparams params;
-};
-
+        Params params;
+    };
+}
 #endif

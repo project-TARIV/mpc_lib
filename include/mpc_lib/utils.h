@@ -2,8 +2,8 @@
 #define MPC_U
 
 #include <cmath>
-#include <Eigen-3.3/Eigen/QR>
-#include <Eigen-3.3/Eigen/Core>
+#include <eigen3/Eigen/QR>
+#include <eigen3/Eigen/Core>
 
 double pi() { return M_PI; }
 
