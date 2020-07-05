@@ -1,6 +1,6 @@
 #include <mpc_lib/utils.h>
 
-double polyeval(Eigen::VectorXd coeffs, double x) {
+double mpc_lib::polyeval(Eigen::VectorXd coeffs, double x) {
 
     double result = 0.0;
 
@@ -11,7 +11,7 @@ double polyeval(Eigen::VectorXd coeffs, double x) {
     return result;
 }
 
-Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order) {
+Eigen::VectorXd mpc_lib::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order) {
     assert(xvals.size() == yvals.size());
     assert(order >= 1 && order <= xvals.size() - 1);
     Eigen::MatrixXd A(xvals.size(), order + 1);
