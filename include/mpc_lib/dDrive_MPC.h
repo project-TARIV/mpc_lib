@@ -34,6 +34,15 @@ namespace mpc_lib {
         double x, y, theta, v, cte, etheta;
     };
 
+    struct Result {
+        double cost;
+
+        double omega;
+        double acceleration;
+
+        std::vector<std::pair<double, double>> plan;
+    };
+
     class FG_eval {
         mpc_lib::Params &_params;
     public:
@@ -58,7 +67,7 @@ namespace mpc_lib {
 
         // Solve the model given an initial state and polynomial coefficients.
         // Return the first actuations.
-        bool solve(const State &state, const Eigen::VectorXd &coeffs, std::vector<double> &result);
+        bool solve(const mpc_lib::State &state, const Eigen::VectorXd &coeffs, Result &result, bool get_path = false);
 
 
         Params params;

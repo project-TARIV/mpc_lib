@@ -127,7 +127,8 @@ mpc_lib::MPC::MPC() : params{}, fg_eval(params) {}
 
 mpc_lib::MPC::~MPC() = default;
 
-bool mpc_lib::MPC::solve(const mpc_lib::State &state, const Eigen::VectorXd &coeffs, std::vector<double> &result) {
+bool mpc_lib::MPC::solve(const mpc_lib::State &state, const Eigen::VectorXd &coeffs, Result &result,
+                         bool get_path/* = false*/) {
     fg_eval.coeffs = coeffs;
 
     indices.setIndices(params.N); // TODO: move to set params function
@@ -254,18 +255,20 @@ bool mpc_lib::MPC::solve(const mpc_lib::State &state, const Eigen::VectorXd &coe
         return false;
     }
 
-    // Cost
-    std::cout << "COST  : " << solution.obj_value << std::endl;
-
     // TODO: Return the first actuator values. The variables can be accessed with
     // `solution.x[i]`.
     std::cout << solution.x.size() << std::endl;
 
-    result = {solution.x[indices.omega_start], solution.x[indices.acc_start]};
-    // Add "future" solutions (where MPC is going)
-    for (int i = 0; i < params.N - 1; ++i) {
-        result.push_back(solution.x[indices.x_start + i + 1]);
-        result.push_back(solution.x[indices.y_start + i + 1]);
+    result.cost = solution.obj_value;
+    result.acceleration = solution.x[indices.acc_start];
+    result.omega = solution.x[indices.omega_start];
+
+    if (get_path) { // Couldnt we have a better way than to add a vector every time
+        result.plan.reserve(params.N);
+        for (int i = 0; i < params.N; i++) {
+            result.plan.emplace_back(solution.x[indices.x_start + i], solution.x[indices.y_start + i]);
+        }
     }
+
     return true;
 }
