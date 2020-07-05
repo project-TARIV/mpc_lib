@@ -29,15 +29,6 @@ namespace mpc_lib {
         double W_OMEGA_D{};
         double W_ACC_D{};
     };
-
-    struct VarIndices {
-        size_t x_start, y_start, theta_start;
-        size_t v_start, omega_start, acc_start;
-        size_t cte_start, etheta_start;
-
-        void setIndices(int N);
-    };
-
     struct State {
         double x, y, theta, v, cte, etheta;
     };
@@ -50,7 +41,7 @@ namespace mpc_lib {
 
         // Solve the model given an initial state and polynomial coefficients.
         // Return the first actuations.
-        bool Solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result);
+        bool solve(const State &state, Eigen::VectorXd coeffs, std::vector<double> &result);
 
 
         Params params;

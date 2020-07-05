@@ -2,23 +2,26 @@
 
 #include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
-#include <utility>
 
 using CppAD::AD;
 using Dvector = CppAD::vector<double>; // Can also use std::vector or std::valarray
 
-void mpc_lib::VarIndices::setIndices(int N) {
-    x_start = 0;
-    y_start = x_start + N;
-    theta_start = y_start + N;
-    v_start = theta_start + N;
-    cte_start = v_start + N;
-    etheta_start = cte_start + N;
-    omega_start = etheta_start + N;
-    acc_start = omega_start + N - 1;
-}
+struct VarIndices {
+    size_t x_start, y_start, theta_start;
+    size_t v_start, omega_start, acc_start;
+    size_t cte_start, etheta_start;
 
-struct mpc_lib::VarIndices indices;
+    void setIndices(int N) {
+        x_start = 0;
+        y_start = x_start + N;
+        theta_start = y_start + N;
+        v_start = theta_start + N;
+        cte_start = v_start + N;
+        etheta_start = cte_start + N;
+        omega_start = etheta_start + N;
+        acc_start = omega_start + N - 1;
+    }
+} indices;
 
 class FG_eval {
     mpc_lib::Params &_params;
@@ -125,7 +128,7 @@ mpc_lib::MPC::MPC() = default;
 
 mpc_lib::MPC::~MPC() = default;
 
-bool mpc_lib::MPC::Solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, std::vector<double> &result) {
+bool mpc_lib::MPC::solve(const mpc_lib::State &state, Eigen::VectorXd coeffs, std::vector<double> &result) {
 
     indices.setIndices(params.N); // TODO: move to set params
 
