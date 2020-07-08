@@ -38,7 +38,7 @@ include_directories(
 link_directories(/usr/local/lib)
 
 ## Declare a C++ library
-add_library(${PROJECT_NAME} src/dDrive_MPC.cpp src/utils.cpp)
+add_library(${PROJECT_NAME} src/mpc_lib.cpp src/utils.cpp)
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ipopt Eigen3::Eigen)
 

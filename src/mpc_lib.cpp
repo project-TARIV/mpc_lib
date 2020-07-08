@@ -1,4 +1,4 @@
-#include <mpc_lib/dDrive_MPC.h>
+#include <mpc_lib/mpc_lib.h>
 
 #include <cppad/ipopt/solve.hpp>
 
