@@ -5,6 +5,24 @@
 using CppAD::AD;
 using Dvector = CppAD::vector<double>; // Can also use std::vector or std::valarray
 
+const static std::map<size_t, std::string> ipopt_error_to_string{
+        {0, "not_defined"},
+        {1, "success"},
+        {2, "maxiter_exceeded"},
+        {3, "stop_at_tiny_step"},
+        {4, "stop_at_acceptable_point"},
+        {5, "local_infeasibility"},
+        {6, "user_requested_stop"},
+        {7, "feasible_point_found"},
+        {8, "diverging_iterates"},
+        {9, "restoration_failure"},
+        {10, "error_in_step_computation"},
+        {11, "invalid_number_detected"},
+        {12, "too_few_degrees_of_freedom"},
+        {13, "internal_error"},
+        {14, "unknown"}
+};
+
 struct VarIndices {
     size_t x_start, y_start, theta_start;
     size_t v_start, omega_start, acc_start;
@@ -232,26 +250,7 @@ bool mpc_lib::MPC::solve(const mpc_lib::State &state, const Eigen::VectorXd &coe
 
     // Check some of the solution values
     if (solution.status != CppAD::ipopt::solve_result<Dvector>::success) {
-        std::cout << "NOT OKAY " << solution.status << std::endl;
-        /*
-           enum status_type {
-                not_defined,
-                success,
-                maxiter_exceeded,
-                stop_at_tiny_step,
-                stop_at_acceptable_point,
-                local_infeasibility,
-                user_requested_stop,
-                feasible_point_found,
-                diverging_iterates,
-                restoration_failure,
-                error_in_step_computation,
-                invalid_number_detected,
-                too_few_degrees_of_freedom,
-                internal_error,
-                unknown
-            };
-         */
+        std::cout << "NOT OKAY " << ipopt_error_to_string.at(solution.status) << std::endl;
         return false;
     }
 
