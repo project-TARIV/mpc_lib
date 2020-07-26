@@ -147,6 +147,7 @@ namespace mpc_lib {
         // These should be updated before calling solve
         State state;
         Dvector global_plan;
+        std::vector<Dvector> obstacles;
         // Used to properly calculate atan for the full range of -pi to pi
         CppAD::AD<double> directionality{1}; // Should be +- 1 ONLY
 
