@@ -19,7 +19,6 @@
  *
  * Written for vehicle path planning task
  *
- * TODO: Rename this package
  */
 
 namespace mpc_lib {
