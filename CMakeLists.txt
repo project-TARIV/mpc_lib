@@ -3,6 +3,10 @@ project(mpc_lib)
 
 add_compile_options(-std=c++17)
 
+# Stop IDEs from processing googletest dir
+# We need to remove this one day down the line.
+set(CATKIN_ENABLE_TESTING false)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
