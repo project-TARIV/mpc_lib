@@ -33,10 +33,10 @@ IPOPT, short for "Interior Point OPTimizer, pronounced I-P-Opt", is a software l
 
 ## Installation Instructions
 
-- Install cppad
+- Install cppad and eigen
 
 ```bash
-sudo apt-get install cppad
+sudo apt-get install cppad libeigen3-dev
 ```
 
 - Install IPOPT
@@ -49,6 +49,7 @@ sudo apt-get install unzip
 wget https://www.coin-or.org/download/source/Ipopt/Ipopt-3.12.7.zip && unzip Ipopt-3.12.7.zip && rm Ipopt-3.12.7.zip
 sudo bash install_ipopt.sh ./Ipopt-3.12.7/
 ```
+
 
 ## MPC Algorithm
 
