@@ -16,9 +16,9 @@ MPC::MPC(Params p) : params(p), dt(1.0 / p.forward.frequency), steps(params.forw
 
 
     // CppAD::ipopt options
+    // TODO: take as parameters
     options += "Integer print_level  0\n"; // Disables all debug information
     options += "String sb yes\n"; // Disables printing IPOPT creator banner
-    // TODO take as params
     options += "Sparse  true        forward\n";
     //options += "Sparse  true        reverse\n";
     options += "Numeric max_cpu_time          0.5\n";
@@ -51,10 +51,10 @@ MPC::MPC(Params p) : params(p), dt(1.0 / p.forward.frequency), steps(params.forw
     // Num_vars = [num_accelerations] * [num timesteps]
 
 
-    _vars = {indices.vars_length};
+    _vars = {indices.num_variables};
 
-    vars_b = {{indices.vars_length},
-              {indices.vars_length}};
+    vars_b = {{indices.num_variables},
+              {indices.num_variables}};
 
     // _vars auto inited to 0
     // Init bounds
@@ -68,8 +68,8 @@ MPC::MPC(Params p) : params(p), dt(1.0 / p.forward.frequency), steps(params.forw
 
     // Constraints:
     // v_r, v_l
-    cons_b = {{indices.cons_length},
-              {indices.cons_length}};
+    cons_b = {{indices.num_constraints},
+              {indices.num_constraints}};
 
     for (auto i : indices.v_r() + indices.v_l()) {
         cons_b.low[i] = params.limits.vel.low;
@@ -135,7 +135,9 @@ bool MPC::solve(Result &result, bool get_path) {
 
         return false;
     }
-    /*std::cout << std::fixed
+
+    /*
+     std::cout << std::fixed
               << "Stat: " << error_string.at(solution.status) << std::endl
               << "cost: " << solution.obj_value << std::endl
               << " Acc: " << solution.x << std::endl
@@ -149,7 +151,8 @@ bool MPC::solve(Result &result, bool get_path) {
     for (auto s : get_states(solution.g, state)) {
         std::cout << "(" << s.x << ", " << s.y << ", " << s.theta << "), ";
     }
-    std::cout << "]" << std::endl << std::scientific;*/
+    std::cout << "]" << std::endl << std::scientific;
+     */
 
     result.status = solution.status;
     result.acc.first = solution.x[indices.a_r()[0]];
@@ -161,6 +164,17 @@ bool MPC::solve(Result &result, bool get_path) {
 
     return true;
 }
+
+// Wraps ADvector &outputs to access constraints easily.
+class ConsWrapper {
+    MPC::ADvector &_outputs;
+public:
+    explicit ConsWrapper(MPC::ADvector &outputs) : _outputs(outputs) {}
+
+    MPC::ADvector::value_type &operator[](size_t index) { return _outputs[1 + index]; }
+
+    // const MPC::ADvector::value_type &operator[](size_t index) const { return _outputs[1 + index]; }
+};
 
 void MPC::operator()(ADvector &outputs, ADvector &vars) const {
 //    const auto start = std::chrono::high_resolution_clock::now();  // ~0 ms
@@ -240,10 +254,10 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
         old_state[3] = state.v_r;
         old_state[4] = state.v_l;
     }
+
     ADState prev{old_state[0], old_state[1], old_state[2], old_state[3], old_state[4]};
 
 
-    // TODO: Wrap this so the for loop directy gives velocities. But maybe not required.
     // Indicing
     Range a_r_r{indices.a_r()}, a_l_r{indices.a_l()},
             v_r_r{indices.v_r()}, v_l_r{indices.v_l()};
@@ -269,9 +283,17 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
 
         objective_func += params.wt.cte * CppAD::pow(polyeval(x, global_plan) - y, 2);
 
+/*
+        // TODO: As a constraint or cost?
+        for (auto &poly : obstacles)
+            objective_func -= params.wt.obs * CppAD::pow(polyeval(x, poly) - y, 2);
+*/
+
         objective_func += params.wt.etheta * CppAD::pow(CppAD::atan(deriveval(x, global_plan)) - theta, 2);
-//        objective_func +=
-        //              params.wt.etheta * CppAD::pow(CppAD::atan2(deriveval(x, global_plan), directionality) - theta, 2);
+
+        // Directionality .
+        // objective_func +=
+        //      params.wt.etheta * CppAD::pow(CppAD::atan2(deriveval(x, global_plan), directionality) - theta, 2);
 
         prev.x = x, prev.y = y, prev.theta = theta, prev.v_r = cons[*v_r_r], prev.v_l = cons[*v_l_r];
         ++a_r_r, ++a_l_r, ++v_r_r, ++v_l_r;
@@ -281,37 +303,31 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
 //            std::chrono::high_resolution_clock::now() - start).count() << "ms." << std::endl;  // ~0 ms
 }
 
+
 // Parts of this function lifted from operator()
-void MPC::get_states(const Dvector &cons, const State &initial, std::vector<State> &path_vector) const {
-    path_vector.clear();
-    path_vector.reserve(steps + 1);
+void MPC::get_states(const Dvector &constraints, const State &initial, std::vector<State> &states) const {
+    states.clear();
+    states.reserve(steps + 1);
 
     // TODO: Should we put initial?
-    path_vector.emplace_back(initial);
+    states.emplace_back(initial);
 
     Range a_r_r{indices.a_r()}, a_l_r{indices.a_l()},
             v_r_r{indices.v_r()}, v_l_r{indices.v_l()};
 
     for (auto t : Range{0, steps}) {
-        const auto &prev = path_vector.back();
+        const auto &prev = states.back();
 
         State cur{
-                prev.x + (cons[*v_r_r] + cons[*v_l_r]) * dt * CppAD::cos(prev.theta) / 2,
-                prev.y + (cons[*v_r_r] + cons[*v_l_r]) * dt * CppAD::sin(prev.theta) / 2,
-                prev.theta + (cons[*v_r_r] - cons[*v_l_r]) * dt / params.wheel_dist,
-                cons[*v_r_r],
-                cons[*v_l_r]
+                prev.x + (constraints[*v_r_r] + constraints[*v_l_r]) * dt * CppAD::cos(prev.theta) / 2,
+                prev.y + (constraints[*v_r_r] + constraints[*v_l_r]) * dt * CppAD::sin(prev.theta) / 2,
+                prev.theta + (constraints[*v_r_r] - constraints[*v_l_r]) * dt / params.wheel_dist,
+                constraints[*v_r_r],
+                constraints[*v_l_r]
         };
-        path_vector.push_back(cur);
 
-        /*double v_r = cons[*v_r_r], v_l = cons[*v_l_r];
-        v.emplace_back(State{
-                prev.x + (cons[*v_r_r] + cons[*v_l_r]) * dt * CppAD::cos(prev.theta) / 2,
-                prev.y + (cons[*v_r_r] + cons[*v_l_r]) * dt * CppAD::sin(prev.theta) / 2,
-                prev.theta + (cons[*v_r_r] - cons[*v_l_r]) * dt / params.wheel_dist,
-                v_r,
-                v_l
-        });*/
+        // TODO: Directly use emplace_back
+        states.push_back(cur);
 
         ++a_r_r, ++a_l_r, ++v_r_r, ++v_l_r;
     }

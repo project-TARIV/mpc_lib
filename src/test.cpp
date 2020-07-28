@@ -1,5 +1,4 @@
 #include <mpc_lib/mpc.h>
-#include <iostream>
 
 int main() {
     mpc_lib::Params p{};
