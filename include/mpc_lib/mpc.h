@@ -65,7 +65,7 @@ namespace mpc_lib {
 
         // Max and Min values of velocity and acc
         struct Limits {
-            LH<double> vel, acc;
+            LH<double> vel, acc, obstacle_poly;
         } limits;
 
         // NOTE: Params all have different scales
