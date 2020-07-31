@@ -2,7 +2,6 @@
 #define MPC_LIB_MPC_H
 
 #include <cppad/cppad.hpp>
-//#include <eigen3/Eigen/Core>
 #include <map>
 
 #include "mpc_lib/helpers.h"
