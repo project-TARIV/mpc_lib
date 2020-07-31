@@ -6,6 +6,12 @@
 
 #include <cppad/ipopt/solve_result.hpp>
 #include <cppad/ipopt/solve.hpp>
+#include <cppad/core/numeric_limits.hpp>
+
+template<typename T>
+inline T signum(T x) {
+    return (x > 0) - (x < 0);
+}
 
 // We are implementing functions in the below namespace
 using namespace mpc_lib;
@@ -98,10 +104,18 @@ const std::map<size_t, std::string> mpc_lib::MPC::error_string = {
 
 
 bool MPC::solve(Result &result, bool get_path) {
+    const auto start = std::chrono::high_resolution_clock::now();
 
     CppAD::ipopt::solve_result<Dvector> solution;
 
-    const auto start = std::chrono::high_resolution_clock::now();
+    cons_b.low.resize(indices.num_constraints + obstacles.size() * steps);
+    cons_b.high.resize(indices.num_constraints + obstacles.size() * steps);
+    if (!obstacles.empty()) {
+        for (size_t i : Range(indices.num_constraints, indices.num_constraints + obstacles.size() * steps)) {
+            cons_b.low[i] = params.limits.obstacle_poly.low;
+            cons_b.high[i] = params.limits.obstacle_poly.high; //CppAD::numeric_limits<Dvector::value_type>::max();
+        }
+    }
 
     CppAD::ipopt::solve(options, _vars, vars_b.low, vars_b.high, cons_b.low, cons_b.high, *this, solution);
 
@@ -261,6 +275,7 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
     // Indicing
     Range a_r_r{indices.a_r()}, a_l_r{indices.a_l()},
             v_r_r{indices.v_r()}, v_l_r{indices.v_l()};
+    Range obstacle_cons(indices.num_constraints, indices.num_constraints + obstacles.size() * steps);
 
     // I think we have to use only CppAD operations (pow) for differentiability
     for (auto t : Range{0, steps}) {
@@ -274,6 +289,13 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
         y = prev.y + (cons[*v_r_r] + cons[*v_l_r]) * dt * CppAD::sin(prev.theta) / 2;
         theta = prev.theta + (cons[*v_r_r] - cons[*v_l_r]) * dt / params.wheel_dist;
 
+        if (!obstacles.empty()) {
+            for (const auto &obstacle : obstacles) {
+                // cons[*obstacle_cons] = signum(polyeval(0, obstacle)) * polyeval(x, obstacle) - y;
+                cons[*obstacle_cons] = signum(obstacle[0]) * (polyeval(x, obstacle) - y);
+                ++obstacle_cons;
+            }
+        }
 
         objective_func += params.wt.acc * CppAD::pow(vars[*a_r_r] + vars[*a_l_r], 2);
         // objective_func += params.wt.acc * CppAD::pow(vars[*a_r_r] - vars[*a_l_r], 2);
