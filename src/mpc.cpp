@@ -112,12 +112,26 @@ bool MPC::solve(Result &result, bool get_path) {
         result.status = solution.status;
 
         if (solution.status == CppAD::ipopt::solve_result<Dvector>::local_infeasibility) {
-//            std::cout << "Choosing new vars.." << std::endl;
-            std::random_device rd{};
-            std::mt19937 gen{rd()};
-            std::normal_distribution<> d{0.1, 0.2};
-//            std::normal_distribution<> d{0.05, 0.1};
+            // Try fixing infeasibility by randomizing initial variable values.
 
+            // std::cout << "Randomizing vars.." << std::endl;
+            std::mt19937 gen{std::random_device{}()};
+            std::normal_distribution<double> d{0.1, 0.2};
+
+            options = "";
+            // options += "Integer print_level  0\n"; // Disables all debug information
+            options += "String sb yes\n";
+            // TODO take as params
+            options += "Sparse  true        forward\n";
+            // options += "Sparse  true        reverse\n";
+            options += "Numeric max_cpu_time          0.5\n";
+
+            for (auto i : indices.a_r() + indices.a_l()) {
+                _vars[i] = d(gen);
+                std::cout << _vars[i] << ", ";
+            }
+
+        } else {
             options = "";
             // options += "Integer print_level  0\n"; // Disables all debug information
             options += "String sb yes\n"; // Disables printing IPOPT creator banner
@@ -125,12 +139,6 @@ bool MPC::solve(Result &result, bool get_path) {
             options += "Sparse  true        forward\n";
             //options += "Sparse  true        reverse\n";
             options += "Numeric max_cpu_time          0.5\n";
-
-            for (auto i : indices.a_r() + indices.a_l()) {
-                _vars[i] = d(gen);
-                std::cout << _vars[i] << ", ";
-            }
-            std::cout << std::endl;
         }
 
         return false;
@@ -165,7 +173,10 @@ bool MPC::solve(Result &result, bool get_path) {
     return true;
 }
 
-// Wraps ADvector &outputs to access constraints easily.
+/*
+ * Wraps ADvector &outputs to access constraints easily.
+ * Constraints are offset by one in outputs.
+*/
 class ConsWrapper {
     MPC::ADvector &_outputs;
 public:
@@ -242,7 +253,7 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
      * ONLY two Ranges that are adjacent can be combined using the '+' operator. Dont use it.
      */
 
-    // Diffrential doubles
+    // Differentiable doubles
     ADvector::value_type x{0}, y{0}, theta{0};
 
     // TODO: move inside loop?
@@ -283,11 +294,6 @@ void MPC::operator()(ADvector &outputs, ADvector &vars) const {
 
         objective_func += params.wt.cte * CppAD::pow(polyeval(x, global_plan) - y, 2);
 
-/*
-        // TODO: As a constraint or cost?
-        for (auto &poly : obstacles)
-            objective_func -= params.wt.obs * CppAD::pow(polyeval(x, poly) - y, 2);
-*/
 
         objective_func += params.wt.etheta * CppAD::pow(CppAD::atan(deriveval(x, global_plan)) - theta, 2);
 
