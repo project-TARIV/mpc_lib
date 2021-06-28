@@ -1,5 +1,3 @@
-# PLEASE USE BRANCH mpc-ipopt
-
 # mpc_lib
 Uses Model Predictive Control for path planning of a diffrential drive vehicle. Uses IPOPT 
 
